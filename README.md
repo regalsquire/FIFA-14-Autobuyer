@@ -7,8 +7,14 @@ Suggestions are always welcome! Donations will go towards the web hosting so it 
 
 I'm doing this because the average AB is starting to cost over 100 euro's and the effectivity is strongly starting to decrease.
 
-## Sample usage
+## How to contribute?
+By writing classes that would be useful for the Autobuyer. But that's certainly not all! Everybody makes mistakes so it would be useful if you could track down bugs and fix them or make a note for somebody else so he can fix it. You can also help by promoting and spreading the word. Know somebody who is thinking about spending his savings on an expensive Autobuyer? Show him this page. 
 
+If you want to contribute to the code but have no idea on how to get those EA URLs. Use Fiddler or the Google Chrome Networking tool. The only way to pretend that our AB is actually the Web App is by CURL headings and a couple of other tricks. To be able to make request that require your account to be logged in, use the cookies you acquire from the connector. It will return the necessary cookies in a PHP array. A detailed guide on this one will be written soon. I'm currently very busy with the AB itself so if anyone with AB knowledge could help me write the instructions, much appreciated. 
+
+Without any help from the community, I will not be able to finish the project which means you won't be able to use it. 
+
+## Sample usage
 [To-do](https://github.com/ipsq/FIFA-14-Autobuyer#to-do)                                              
 [Initialization](https://github.com/ipsq/FIFA-14-Autobuyer#initialization)  
 
