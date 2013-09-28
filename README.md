@@ -9,7 +9,7 @@ I'm doing this because the average AB is starting to cost over 100 euro's and th
 
 ## Sample usage
 
-[To-do](https://github.com/ipsq/FIFA-14-Autobuyer#to-do)
+[To-do](https://github.com/ipsq/FIFA-14-Autobuyer#to-do)                                              
 [Initialization](https://github.com/ipsq/FIFA-14-Autobuyer#initialization)  
 
 ## To-do
