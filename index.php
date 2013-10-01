@@ -1,5 +1,7 @@
 <?php
 
+define("CURL_OPTION_SSL_VERIFYPEER", false);
+
 error_reporting(-1);
 
 require 'connector.php';
