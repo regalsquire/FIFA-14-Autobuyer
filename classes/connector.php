@@ -73,6 +73,7 @@ class Connector
 
         $ch = curl_init($home);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
         curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
         curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");
         curl_setopt($ch, CURLOPT_POST, 1);                                                                     
@@ -104,6 +105,7 @@ class Connector
         // shards
         $ch = curl_init($shards);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
         curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
         curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");                                                                    
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
@@ -128,6 +130,7 @@ class Connector
         // getUserAccount
         $ch = curl_init($accountinfo);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
         curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
         curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");                                                                    
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
@@ -170,6 +173,7 @@ class Connector
 
         $ch = curl_init($auth);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
         curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
         curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");
         curl_setopt($ch, CURLOPT_POST, 1);
