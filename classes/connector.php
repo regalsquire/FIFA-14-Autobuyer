@@ -1,202 +1,266 @@
-<?PHP
+<?php namespace FIFA14;
+
+use Guzzle\Http\Client;
+use Guzzle\Plugin\Cookie\CookiePlugin;
+use Guzzle\Plugin\Cookie\CookieJar\ArrayCookieJar;
 
 class Connector
 {
+    
+    private $_loginDetails = array();
+    private $_loginResponse = array();
 
-	//TODO
-	// Make everything have it's own method. 
-	// Finish!
+    private $MainPageURL = "http://www.easports.com/uk/fifa/football-club/ultimate-team";
+    private $LoginURL = "https://www.easports.com/services/authenticate/login";
+    private $NucleusIdURL = "http://www.easports.com/iframe/fut/?locale=en_GB&baseShowoffUrl=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team%2Fshow-off&guest_app_uri=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team";
+    private $ShardsURL = "http://www.easports.com/iframe/fut/p/ut/shards?_=";
+    private $UserAccountsURL = "http://www.easports.com/iframe/fut/p/ut/game/fifa14/user/accountinfo?_=";
+    private $SessionIdURL = "http://www.easports.com/iframe/fut/p/ut/auth";
+    private $ValidateURL = "http://www.easports.com/iframe/fut/p/ut/game/fifa14/phishing/validate";
+    private $PhishingURL = "http://www.easports.com/iframe/fut/p/ut/game/fifa14/phishing/question?_=";
+
     
-    private $user;
-    private $password;
-    private $hash;
-    private $getmachine;
-    
-    //initialise the class
-    public function __construct($user, $password, $hash)
-    {
-        $this->user       = $user;
-        $this->password   = $password;
-        $this->hash       = $hash;
+    public function __construct($loginDetails) {
+        $this->_loginDetails = $loginDetails;
     }
 
-    public function xml_to_array($root) {
-	    $result = array();
+    public function Connect() {
 
-	    if ($root->hasAttributes()) {
-	        $attrs = $root->attributes;
-	        foreach ($attrs as $attr) {
-	            $result['@attributes'][$attr->name] = $attr->value;
-	        }
-	    }
+        $client = new Client(null);
+        $cookiePlugin = new CookiePlugin(new ArrayCookieJar());
+        $client->addSubscriber($cookiePlugin);
+        $client->setUserAgent("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36");
 
-	    if ($root->hasChildNodes()) {
-	        $children = $root->childNodes;
-	        if ($children->length == 1) {
-	            $child = $children->item(0);
-	            if ($child->nodeType == XML_TEXT_NODE) {
-	                $result['_value'] = $child->nodeValue;
-	                return count($result) == 1
-	                    ? $result['_value']
-	                    : $result;
-	            }
-	        }
-	        $groups = array();
-	        foreach ($children as $child) {
-	            if (!isset($result[$child->nodeName])) {
-	                $result[$child->nodeName] = $this->xml_to_array($child);
-	            } else {
-	                if (!isset($groups[$child->nodeName])) {
-	                    $result[$child->nodeName] = array($result[$child->nodeName]);
-	                    $groups[$child->nodeName] = 1;
-	                }
-	                $result[$child->nodeName][] = $this->xml_to_array($child);
-	            }
-	        }
-	    }
+        $login_url = $this->GetMainPage($client, $this->MainPageURL);
+        $this->Login($client, $this->_loginDetails, $login_url);
+        $nucleusId = $this->GetNucleusId($client, $this->_loginDetails, $this->NucleusIdURL);
+        $this->GetShards($client, $nucleusId, $this->ShardsURL);
+        $userAccounts = $this->GetUserAccounts($client, $nucleusId, $this->_loginDetails, $this->UserAccountsURL);
+        $sessionId = $this->GetSessionId($client, $nucleusId, $userAccounts, $this->_loginDetails, $this->SessionIdURL);
+        $phishing = $this->Phishing($client, $this->_loginDetails, $nucleusId, $sessionId, $this->PhishingURL);
 
-	    return $result;
-	}
-    
-    public function connect()
-    {
-        //URI
-        $home	   = "https://www.easports.com/services/authenticate/login";
-        $shards    = "http://www.easports.com/iframe/fut/p/ut/shards?_=".time();
-        $accountinfo = "http://www.easports.com/iframe/fut/p/ut/game/fifa14/user/accountinfo?_=".time();
-        $auth      = "http://www.easports.com/iframe/fut/p/ut/auth";
+        if (isset($phishing['debug']) && $phishing['debug'] == "Already answered question.") {
+            $phishingToken = $phishing['token'];
+        } else {
+            $phishingToken = $this->Validate($client, $this->_loginDetails, $nucleusId, $sessionId, $this->ValidateURL);
+        }
 
-        // Logging in
-        // Found a weird glitch that when a return and a failure URI are not provided.
-        // EA returns the NucleusID and some other details.
-        $data_string = "loginSource=overlay&email=".$this->user."&password=".$this->password."&overlay-stay-signed=ON";
+        $this->_loginResponse = array(
+            "nucleusId" => $nucleusId,
+            "userAccounts" => $userAccounts,
+            "sessionId" => $sessionId,
+            "phishingToken" => $phishingToken,
+            "cookies" => $cookiePlugin
+            );
 
-        $ch = curl_init($home);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
-        curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");
-        curl_setopt($ch, CURLOPT_POST, 1);                                                                     
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string); 
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-			'Content-Type: application/x-www-form-urlencoded',                                                                                
-			'Content-Length: ' . strlen($data_string),
-			'Referer: http://www.easports.com/')                                                                   
-		); 
+        return $this->_loginResponse;
 
+    }
 
-        $response = curl_exec($ch);
+    private function GetMainPage($client, $url) {
 
-        echo "<h3>Home</h3>";
-		echo "<pre>";
-        print_r($response);
-        echo "</pre>";
+        $request = $client->get($url);
 
-        curl_close($ch);
+        $response = $request->send();
 
-        // Converts the CURl output to a PHP array so we can use the data.
-        $dom = new DOMDocument();
-        $dom->loadXML($response);
+        return $response->getInfo('url');
 
-        $xmlArray  = $this->xml_to_array($dom);
-        $nucleusId = $xmlArray['login']['player']['nucleusId'];
+    }
 
+    private function Login($client, $loginDetails, $url) {
 
-        // shards
-        $ch = curl_init($shards);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
-        curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");                                                                    
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-			'Content-Type: application/json',
-			'Easw-Session-Data-Nucleus-Id: 2411412757',
-			'X-UT-Embed-Error: true',
-			'X-UT-Route: https://utas.fut.ea.com',
-			'X-Requested-With: XMLHttpRequest')                                                                                                                                                   
-		); 
+        $request = $client->post($url, array(), array(
+            "email" => $loginDetails['username'],
+            "password" => $loginDetails['password'],
+            "_rememberMe" => "on",
+            "rememberMe" => "on",
+            "_eventId" => "submit",
+            "facebookAuth" => ""
+        ));
 
-        $response = json_decode(curl_exec($ch), true);
+        $response = $request->send();
 
-        echo "<h3>Shards</h3>";
-		echo "<pre>";
-        print_r($response);
-        echo "</pre>";
+    }
 
-        curl_close($ch);
+    private function GetNucleusId($client, $loginDetails, $url) {
 
+        $request = $client->get($url);
 
+        $response = $request->send();
+        $body = $response->getBody(true);
 
-        // getUserAccount
-        $ch = curl_init($accountinfo);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
-        curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");                                                                    
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array(                                                                          
-			'Content-Type: application/json',
-			'Easw-Session-Data-Nucleus-Id: '.$nucleusId,
-			'X-UT-Embed-Error: true',
-			'X-UT-Route: https://utas.fut.ea.com',
-			'X-Requested-With: XMLHttpRequest')                                                                                                                                                   
-		); 
+        $matches = array();
 
-        $response = json_decode(curl_exec($ch), true);
-        $userAccount = $response;
+        preg_match("/var\ EASW_ID = '(\d*)';/", $body, $matches);
+        
+        return $matches[1];
 
-        echo "<h3>Account Info</h3>";
-		echo "<pre>";
-        print_r($response);
-        echo "</pre>";
+    }
 
-        curl_close($ch);
+    private function GetShards($client, $nucleusId, $url) {
 
+        $request = $client->get($url . time());
 
-        // Session ID 
-        echo "<h3>Auth</h3>";       
+        $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
+        $request->addHeader('X-UT-Embed-Error', 'true');
+        $request->addHeader('X-UT-Route', 'https://utas.fut.ea.com');
+        $request->addHeader('X-Requested-With', 'XMLHttpRequest');
+        $request->setHeader('Accept', 'application/json, text/javascript');
+        $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
+        $request->setHeader('Referer', 'http://www.easports.com/iframe/fut/?baseShowoffUrl=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team%2Fshow-off&guest_app_uri=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team&locale=en_GB');
+
+        $response = $request->send();
+
+    }
+
+    private function GetUserAccounts($client, $nucleusId, $loginDetails, $url) {
+
+        $route;
+        if (strtolower($loginDetails['platform']) == "xbox360") {
+            $route = 'https://utas.fut.ea.com:443';
+        } else {
+            $route = 'https://utas.s2.fut.ea.com:443';
+        }
+
+        $request = $client->get($url . time());
+
+        $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
+        $request->addHeader('X-UT-Embed-Error', 'true');
+        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-Requested-With', 'XMLHttpRequest');
+        $request->setHeader('Accept', 'application/json, text/javascript');
+        $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
+        $request->setHeader('Referer', 'http://www.easports.com/iframe/fut/?baseShowoffUrl=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team%2Fshow-off&guest_app_uri=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team&locale=en_GB');
+
+        $response = $request->send();
+
+        return $response->json();
+    }
+
+    private function GetSessionId($client, $nucleusId, $userAccounts, $loginDetails, $url) {
+
+        $route;
+        if (strtolower($loginDetails['platform']) == "xbox360") {
+            $route = 'https://utas.fut.ea.com:443';
+        } else {
+            $route = 'https://utas.s2.fut.ea.com:443';
+        }
+
         $persona = array();
         $lastAccessTime = array();
-        foreach ($userAccount['userAccountInfo']['personas'][0]['userClubList'] as $key) {
-        	$persona[] = $key;
+
+        foreach ($userAccounts['userAccountInfo']['personas'][0]['userClubList'] as $key) {
+            $persona[] = $key;
         }
 
         foreach ($persona as $key) {
-        	$lastAccessTime[] = $key['lastAccessTime'];
+            $lastAccessTime[] = $key['lastAccessTime'];
         }
 
         $latestAccessTime = max($lastAccessTime);
         $lastUsedPersona  = $persona[array_search($latestAccessTime, $lastAccessTime)];
 
-        $data = array('isReadOnly' => false, "sku" => "FUT14WEB", "clientVersion" => 1, "nuc" => $nucleusId, "nucleusPersonaId" => $userAccount['userAccountInfo']['personas'][0]['personaId'], "nucleusPersonaDisplayName" => $userAccount['userAccountInfo']['personas'][0]['personaName'], "nucleusPersonaPlatform" => "360", "locale" => "en-GB", "method" => "authcode", "priorityLevel" => 4, "identification" => '{ "authCode": "" }');
-        $data_string = json_encode($data);
-        $data_string = '{ "isReadOnly": false, "sku": "FUT14WEB", "clientVersion": 1, "nuc": 2411412757, "nucleusPersonaId": 352196208, "nucleusPersonaDisplayName": "iPSQ", "nucleusPersonaPlatform": "360", "locale": "nl-NL", "method": "authcode", "priorityLevel":4, "identification": { "authCode": "" } }';
+        $personaId = $userAccounts['userAccountInfo']['personas'][0]['personaId'];
+        $personaName = $userAccounts['userAccountInfo']['personas'][0]['personaName'];
+        $platform = $this->getNucleusPlatform($loginDetails['platform']);
 
-        $ch = curl_init($auth);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, CURL_OPTION_SSL_VERIFYPEER);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.76 Safari/537.36");
-        curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate,sdch");
-        curl_setopt($ch, CURLOPT_POST, 1);
-  		curl_setopt($ch, CURLOPT_HEADER, 1);                                                                     
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string); 
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-			'Content-Type: application/json',
-			'Easw-Session-Data-Nucleus-Id: '.$nucleusId,
-			'X-UT-Embed-Error: true',
-			// 'X-UT-Route: https://utas.fut.ea.com',
-			// 'X-Requested-With: XMLHttpRequest',                                                                               
-			'Content-Length: ' . strlen($data_string)
-			)                                                                 
-		);
+        $data_array = array(
+            'isReadOnly' => false,
+            'sku' => 'FUT14WEB',
+            'clientVersion' => 1,
+            'nuc' => $nucleusId,
+            'nucleusPersonaId' => $personaId,
+            'nucleusPersonaDisplayName' => $personaName,
+            'nucleusPersonaPlatform' => $platform,
+            'locale' => 'en-GB',
+            'method' => 'authcode',
+            'priorityLevel' => 4,
+            'identification' => array('authCode' => ''));
+        $data_string = json_encode($data_array);
 
-		$response = json_decode(curl_exec($ch), true);
+        $request = $client->post($url, array(), $data_string);
 
-		// echo "<h3>Auth</h3>";
-		echo "<pre>";
-        print_r($response);
-        echo "</pre>";
+        $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
+        $request->addHeader('X-UT-Embed-Error', 'true');
+        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-Requested-With', 'XMLHttpRequest');
+        $request->setHeader('Accept', 'application/json, text/javascript');
+        $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
+        $request->setHeader('Referer', 'http://www.easports.com/iframe/fut/?baseShowoffUrl=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team%2Fshow-off&guest_app_uri=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team&locale=en_GB');
+        $request->setHeader('Content-Type', 'application/json');
+        $request->setHeader('Content-Length', strlen($data_string));
 
-        curl_close($ch); 
+        $response = $request->send();
+
+        $sessionId = $response->json();
+
+        return $sessionId['sid'];
     }
-    
+
+    private function Phishing($client, $loginDetails, $nucleusId, $sessionId, $url) {
+
+        if (strtolower($loginDetails['platform']) == "xbox360") {
+            $route = 'https://utas.fut.ea.com:443';
+        } else {
+            $route = 'https://utas.s2.fut.ea.com:443';
+        }
+
+        $request = $client->get($url . time());
+
+        $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
+        $request->addHeader('X-UT-Embed-Error', 'true');
+        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-UT-SID', $sessionId);
+        $request->addHeader('X-Requested-With', 'XMLHttpRequest');
+        $request->setHeader('Accept', 'application/json, text/javascript');
+        $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
+        $request->setHeader('Referer', 'http://www.easports.com/iframe/fut/?baseShowoffUrl=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team%2Fshow-off&guest_app_uri=http%3A%2F%2Fwww.easports.com%2Fuk%2Ffifa%2Ffootball-club%2Fultimate-team&locale=en_GB');
+
+        $response = $request->send();
+        
+        return $response->json();
+
+    }
+
+    private function Validate($client, $loginDetails, $nucleusId, $sessionId, $url) {
+
+        $route;
+        if (strtolower($loginDetails['platform']) == "xbox360") {
+            $route = 'https://utas.fut.ea.com:443';
+        } else {
+            $route = 'https://utas.s2.fut.ea.com:443';
+        }
+
+        $data_string = "answer=" . $loginDetails['hash'];
+
+        $request = $client->post($url, array(), $data_string);
+
+        $request->addHeader('X-UT-SID', $sessionId);
+        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
+        $request->setHeader('Content-Type', 'application/x-www-form-urlencoded');
+        $request->setHeader('Content-Length', strlen($data_string));
+
+        $response = $request->send();
+
+        $json = $response->json();
+
+        return $json['token'];
+
+    }
+
+    private function getNucleusPlatform($platform) {
+        switch ($platform) {
+            case "ps3":
+                return "ps3";
+            case "xbox360":
+                return "360";
+            case "pc":
+                return "pc";
+            default:
+                return "360";
+        }
+    }
+
+
 }
