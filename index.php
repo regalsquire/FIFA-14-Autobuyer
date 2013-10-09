@@ -1,18 +1,40 @@
 <?php
+require "conector.php";
 
-define("CURL_OPTION_SSL_VERIFYPEER", false);
 
-error_reporting(-1);
+$datos = array(
+            "username" => "xx@xx.com",
+            "password" => "xxxxxx",
+            "platform" => "ps3", // 360, pc
+            "hash" => "xxxx",  // answer in hash
+            );
+$connector = new Connector($datos);
+$con = $connector->Connect();
 
-require 'connector.php';
-require 'eahashor.php';
 
-$answer   = "";
-$username = "";
-$password = "";
-$machine  = "";
 
-$hashor     = new EAHashor();
-$hash       = $hashor->eaEncode($answer);
-$connector  = new Connector($username, $password, $answer, $machine);
-$connection = $connector->connect();
+echo "NUCLEUS ID: ";
+echo $con["nucleusId"];
+
+echo "<br><br>";
+
+echo "USER ACCOUNTS:";
+ print_r($con["userAccounts"]);
+
+echo "<br><br>";
+
+ echo " SID: ";
+ print_r($con["sessionId"]);
+
+ echo "<br><br>";
+
+ echo " TOKEN: ";
+  print_r($con["phishingToken"]);
+
+echo "<br><br>";
+
+echo "COOKIES: ";
+  print_r($con["cookies"]);
+
+ 
+?>
