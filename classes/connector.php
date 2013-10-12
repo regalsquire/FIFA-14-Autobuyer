@@ -9,6 +9,8 @@ class Connector
     
     private $_loginDetails = array();
     private $_loginResponse = array();
+    
+    private $_client;
 
     private $MainPageURL = "http://www.easports.com/uk/fifa/football-club/ultimate-team";
     private $LoginURL = "https://www.easports.com/services/authenticate/login";
@@ -30,19 +32,25 @@ class Connector
         $cookiePlugin = new CookiePlugin(new ArrayCookieJar());
         $client->addSubscriber($cookiePlugin);
         $client->setUserAgent("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.62 Safari/537.36");
+        
+        $this->_client = $client;
 
-        $login_url = $this->GetMainPage($client, $this->MainPageURL);
-        $this->Login($client, $this->_loginDetails, $login_url);
-        $nucleusId = $this->GetNucleusId($client, $this->_loginDetails, $this->NucleusIdURL);
-        $this->GetShards($client, $nucleusId, $this->ShardsURL);
-        $userAccounts = $this->GetUserAccounts($client, $nucleusId, $this->_loginDetails, $this->UserAccountsURL);
-        $sessionId = $this->GetSessionId($client, $nucleusId, $userAccounts, $this->_loginDetails, $this->SessionIdURL);
-        $phishing = $this->Phishing($client, $this->_loginDetails, $nucleusId, $sessionId, $this->PhishingURL);
+        $login_url = $this->GetMainPage($this->MainPageURL);
+        $this->Login($login_url);
+        
+        $nucleusId = $this->GetNucleusId($this->NucleusIdURL);
+        
+        $this->GetShards($nucleusId, $this->ShardsURL);
+        $userAccounts = $this->GetUserAccounts($nucleusId, $this->UserAccountsURL);
+        
+        $sessionId = $this->GetSessionId($nucleusId, $userAccounts, $this->SessionIdURL);
+        
+        $phishing = $this->Phishing($nucleusId, $sessionId, $this->PhishingURL);
 
         if (isset($phishing['debug']) && $phishing['debug'] == "Already answered question.") {
             $phishingToken = $phishing['token'];
         } else {
-            $phishingToken = $this->Validate($client, $this->_loginDetails, $nucleusId, $sessionId, $this->ValidateURL);
+            $phishingToken = $this->Validate($nucleusId, $sessionId, $this->ValidateURL);
         }
 
         $this->_loginResponse = array(
@@ -50,16 +58,17 @@ class Connector
             "userAccounts" => $userAccounts,
             "sessionId" => $sessionId,
             "phishingToken" => $phishingToken,
-            "cookies" => $cookiePlugin
-            );
+            "cookies" => $cookiePlugin,
+            "platform" => $this->_loginDetails['platform']
+        );
 
         return $this->_loginResponse;
 
     }
 
-    private function GetMainPage($client, $url) {
+    private function GetMainPage($url) {
 
-        $request = $client->get($url);
+        $request = $this->_client->get($url);
 
         $response = $request->send();
 
@@ -67,11 +76,11 @@ class Connector
 
     }
 
-    private function Login($client, $loginDetails, $url) {
+    private function Login($url) {
 
-        $request = $client->post($url, array(), array(
-            "email" => $loginDetails['username'],
-            "password" => $loginDetails['password'],
+        $request = $this->_client->post($url, array(), array(
+            "email" => $this->_loginDetails['username'],
+            "password" => $this->_loginDetails['password'],
             "_rememberMe" => "on",
             "rememberMe" => "on",
             "_eventId" => "submit",
@@ -82,9 +91,9 @@ class Connector
 
     }
 
-    private function GetNucleusId($client, $loginDetails, $url) {
+    private function GetNucleusId($url) {
 
-        $request = $client->get($url);
+        $request = $this->_client->get($url);
 
         $response = $request->send();
         $body = $response->getBody(true);
@@ -97,9 +106,9 @@ class Connector
 
     }
 
-    private function GetShards($client, $nucleusId, $url) {
+    private function GetShards($nucleusId, $url) {
 
-        $request = $client->get($url . time());
+        $request = $this->_client->get($url . time());
 
         $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
         $request->addHeader('X-UT-Embed-Error', 'true');
@@ -113,20 +122,19 @@ class Connector
 
     }
 
-    private function GetUserAccounts($client, $nucleusId, $loginDetails, $url) {
+    private function GetUserAccounts($nucleusId, $url) {
 
-        $route;
-        if (strtolower($loginDetails['platform']) == "xbox360") {
-            $route = 'https://utas.fut.ea.com:443';
+        if ($this->_loginDetails['platform'] == "xbox360") {
+            $this->_loginDetails['route'] = 'https://utas.fut.ea.com:443';
         } else {
-            $route = 'https://utas.s2.fut.ea.com:443';
+            $this->_loginDetails['route'] = 'https://utas.s2.fut.ea.com:443';
         }
 
-        $request = $client->get($url . time());
+        $request = $this->_client->get($url . time());
 
         $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
         $request->addHeader('X-UT-Embed-Error', 'true');
-        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-UT-Route', $this->_loginDetails['route']);
         $request->addHeader('X-Requested-With', 'XMLHttpRequest');
         $request->setHeader('Accept', 'application/json, text/javascript');
         $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
@@ -137,14 +145,7 @@ class Connector
         return $response->json();
     }
 
-    private function GetSessionId($client, $nucleusId, $userAccounts, $loginDetails, $url) {
-
-        $route;
-        if (strtolower($loginDetails['platform']) == "xbox360") {
-            $route = 'https://utas.fut.ea.com:443';
-        } else {
-            $route = 'https://utas.s2.fut.ea.com:443';
-        }
+    private function GetSessionId($nucleusId, $userAccounts, $url) {
 
         $persona = array();
         $lastAccessTime = array();
@@ -162,7 +163,7 @@ class Connector
 
         $personaId = $userAccounts['userAccountInfo']['personas'][0]['personaId'];
         $personaName = $userAccounts['userAccountInfo']['personas'][0]['personaName'];
-        $platform = $this->getNucleusPlatform($loginDetails['platform']);
+        $platform = $this->getNucleusPlatform($this->_loginDetails['platform']);
 
         $data_array = array(
             'isReadOnly' => false,
@@ -178,11 +179,11 @@ class Connector
             'identification' => array('authCode' => ''));
         $data_string = json_encode($data_array);
 
-        $request = $client->post($url, array(), $data_string);
+        $request = $this->_client->post($url, array(), $data_string);
 
         $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
         $request->addHeader('X-UT-Embed-Error', 'true');
-        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-UT-Route', $this->_loginDetails['route']);
         $request->addHeader('X-Requested-With', 'XMLHttpRequest');
         $request->setHeader('Accept', 'application/json, text/javascript');
         $request->setHeader('Accept-Language', 'en-US,en;q=0.8');
@@ -197,19 +198,13 @@ class Connector
         return $sessionId['sid'];
     }
 
-    private function Phishing($client, $loginDetails, $nucleusId, $sessionId, $url) {
+    private function Phishing($nucleusId, $sessionId, $url) {
 
-        if (strtolower($loginDetails['platform']) == "xbox360") {
-            $route = 'https://utas.fut.ea.com:443';
-        } else {
-            $route = 'https://utas.s2.fut.ea.com:443';
-        }
-
-        $request = $client->get($url . time());
+        $request = $this->_client->get($url . time());
 
         $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
         $request->addHeader('X-UT-Embed-Error', 'true');
-        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-UT-Route', $this->_loginDetails['route']);
         $request->addHeader('X-UT-SID', $sessionId);
         $request->addHeader('X-Requested-With', 'XMLHttpRequest');
         $request->setHeader('Accept', 'application/json, text/javascript');
@@ -222,21 +217,14 @@ class Connector
 
     }
 
-    private function Validate($client, $loginDetails, $nucleusId, $sessionId, $url) {
+    private function Validate($nucleusId, $sessionId, $url) {
 
-        $route;
-        if (strtolower($loginDetails['platform']) == "xbox360") {
-            $route = 'https://utas.fut.ea.com:443';
-        } else {
-            $route = 'https://utas.s2.fut.ea.com:443';
-        }
+        $data_string = "answer=" . $this->_loginDetails['hash'];
 
-        $data_string = "answer=" . $loginDetails['hash'];
-
-        $request = $client->post($url, array(), $data_string);
+        $request = $this->_client->post($url, array(), $data_string);
 
         $request->addHeader('X-UT-SID', $sessionId);
-        $request->addHeader('X-UT-Route', $route);
+        $request->addHeader('X-UT-Route', $this->_loginDetails['route']);
         $request->addHeader('Easw-Session-Data-Nucleus-Id', $nucleusId);
         $request->setHeader('Content-Type', 'application/x-www-form-urlencoded');
         $request->setHeader('Content-Length', strlen($data_string));
