@@ -14,11 +14,10 @@ If you want to contribute to the code but have no idea on how to get those EA UR
 
 Without any help from the community, I will not be able to finish the project which means you won't be able to use it. 
 
-## To-do
-- Web design
-- Finishing the EA Connection Class
-- Starting on the EA search class
-- Choosing a safe and up-to date framework (Suggestions!)
+### To-do
+- Web design, the whole front end!
+- Starting on the EA search class (Almost done!)
+- Choosing a safe and up-to date framework (Currently not as important)
 - Deciding what will be Javascript and what will be done server side
 
 ## Sample usage                                             
