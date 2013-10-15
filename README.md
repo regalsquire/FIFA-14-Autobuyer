@@ -28,9 +28,20 @@ Without any help from the community, I will not be able to finish the project wh
 ### Initialization
 ```php
 require 'classes/connector.php'
-$con = new Connector($email, $password, $answer, $system);
+$con = new Connector($loginDetails);
 $connection = $con->connect();
 ```
+
+The Login Details array should look like this:
+```php
+$loginDetails = array(
+    "username" => $email,
+    "password" => $password,
+    "hash" => $hash,
+    "platform" => xbox360 || ps3 || pc,
+);
+```
+
 This will return the session and token information used to make Search and Bid calls. It will be returned in an array with the following layout:
 
 ```php
