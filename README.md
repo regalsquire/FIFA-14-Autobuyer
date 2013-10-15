@@ -14,16 +14,15 @@ If you want to contribute to the code but have no idea on how to get those EA UR
 
 Without any help from the community, I will not be able to finish the project which means you won't be able to use it. 
 
-## Sample usage
-[To-do](https://github.com/ipsq/FIFA-14-Autobuyer#to-do)                                              
-[Initialization](https://github.com/ipsq/FIFA-14-Autobuyer#initialization)  
-
 ## To-do
 - Web design
 - Finishing the EA Connection Class
 - Starting on the EA search class
 - Choosing a safe and up-to date framework (Suggestions!)
 - Deciding what will be Javascript and what will be done server side
+
+## Sample usage                                             
+[Initialization](https://github.com/ipsq/FIFA-14-Autobuyer#initialization)  
 
 
 ### Initialization
@@ -32,4 +31,18 @@ require 'classes/connector.php'
 $con = new Connector($email, $password, $answer, $system);
 $connection = $con->connect();
 ```
-This will return the cookies for the use of the functions.
+This will return the session and token information used to make Search and Bid calls. It will be returned in an array with the following layout:
+
+```php
+$loginResponse = array(
+    "nucleusId" => $nucleusId,
+    "userAccounts" => $userAccounts,
+    "sessionId" => $sessionId,
+    "phishingToken" => $phishingToken,
+    "cookies" => $cookiePlugin,
+    "platform" => $this->_loginDetails['platform']
+);```
+
+These can be used with ```php $nucID = $loginResponse['nucleusId']; ```
+
+
