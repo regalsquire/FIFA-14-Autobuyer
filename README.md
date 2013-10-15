@@ -41,8 +41,12 @@ $loginResponse = array(
     "phishingToken" => $phishingToken,
     "cookies" => $cookiePlugin,
     "platform" => $this->_loginDetails['platform']
-);```
+);
+```
 
-These can be used with ```php $nucID = $loginResponse['nucleusId']; ```
+These can be used by grabbing the array key like so: 
+```php
+$nucID = $loginResponse['nucleusId']; 
+```
 
 
