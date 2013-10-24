@@ -1,5 +1,5 @@
 <?php
-require "conector.php";
+require "/classes/connector.php";
 
 
 $datos = array(
